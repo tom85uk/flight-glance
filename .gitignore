@@ -2,3 +2,6 @@
 .venv
 .vscode
 .DS_Store
+src/secrets.h
+include/secrets.h
+release/
