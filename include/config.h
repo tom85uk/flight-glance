@@ -40,9 +40,9 @@ constexpr unsigned long kTouchTapDebounceMs = 80UL;
 
 // --- Panel buttons (momentary to GND, internal pull-up, active LOW) ---
 constexpr bool kButtonsEnabled = true;
-constexpr gpio_num_t kThemeButtonPin = GPIO_NUM_13;
+constexpr gpio_num_t kThemeButtonPin = GPIO_NUM_27;
 constexpr gpio_num_t kRangeButtonPin = GPIO_NUM_14;
-constexpr gpio_num_t kNextButtonPin = GPIO_NUM_27;
+constexpr gpio_num_t kNextButtonPin = GPIO_NUM_13;
 constexpr unsigned long kButtonDebounceMs = 40UL;
 
 // Round GC9A01 on VSPI (SPI3): SCK=18  MOSI=23
@@ -84,7 +84,6 @@ constexpr unsigned long kAlertLedFlashMs = 120;
 constexpr unsigned long kAlertLedFlashGapMs = 100;
 constexpr unsigned long kOledRangeFlashMs = 1400;
 constexpr unsigned long kOledAircraftFlashMs = 1600;
-constexpr unsigned long kSideCycleMs = 4000;
 
 // --- Radar center ---
 /** Permanent home — Shrewsbury (restored when "Use home location" is selected). */

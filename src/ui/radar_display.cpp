@@ -15,6 +15,7 @@
 #include "config.h"
 #include "hardware/display.h"
 #include "hardware/display_font.h"
+#include "hardware/side_display.h"
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
 #include "ui/plane_icons.h"
@@ -59,9 +60,12 @@ int s_scale_label_h = 0;
 lgfx::LovyanGFX* s_draw = &tft;
 LGFX_Sprite s_grid(&tft);
 LGFX_Sprite s_plane_icon(&tft);
+LGFX_Sprite s_plane_icon_sel(&tft);
 bool s_grid_ready = false;
 bool s_grid_valid = false;
 bool s_plane_icon_ready = false;
+bool s_plane_icon_sel_ready = false;
+uint16_t s_color_selected = 0xFFFF;
 
 struct DirtyRect {
   int16_t x = 0;
@@ -225,11 +229,16 @@ void initPalette() {
                                         theme.runway_label.b);
   radar::kColorSweep =
       panelColor(theme.sweep.r, theme.sweep.g, theme.sweep.b);
+  s_color_selected = panelColor(255, 255, 255);
 
-  // Icon bitmap is rebuilt with the active theme color each palette init.
+  // Icon bitmaps are rebuilt with the active theme / selection colour.
   if (s_plane_icon_ready) {
     s_plane_icon.deleteSprite();
     s_plane_icon_ready = false;
+  }
+  if (s_plane_icon_sel_ready) {
+    s_plane_icon_sel.deleteSprite();
+    s_plane_icon_sel_ready = false;
   }
 }
 
@@ -301,56 +310,69 @@ bool beyondRingEdgeDotFromLatLon(float lat, float lon, int* out_x, int* out_y) {
   return true;
 }
 
-void drawBeyondRingDot(int x, int y) {
+void drawBeyondRingDot(int x, int y, bool selected) {
+  const uint16_t color = selected ? s_color_selected : radar::kColorAircraft;
   if (s_draw->getColorDepth() > 8) {
-    s_draw->fillSmoothCircle(x, y, radar::kBeyondRingDotRadiusPx,
-                             radar::kColorAircraft);
+    s_draw->fillSmoothCircle(x, y, radar::kBeyondRingDotRadiusPx, color);
   } else {
-    s_draw->fillCircle(x, y, radar::kBeyondRingDotRadiusPx, radar::kColorAircraft);
+    s_draw->fillCircle(x, y, radar::kBeyondRingDotRadiusPx, color);
   }
 }
 
-bool ensurePlaneIcon() {
-  if (s_plane_icon_ready) {
+bool ensureTintedPlaneIcon(LGFX_Sprite& spr, bool* ready, uint16_t color) {
+  if (*ready) {
     return true;
   }
-  s_plane_icon.setColorDepth(16);
-  if (!s_plane_icon.createSprite(PLANE_ICON_SIZE, PLANE_ICON_SIZE)) {
+  spr.setColorDepth(16);
+  if (!spr.createSprite(PLANE_ICON_SIZE, PLANE_ICON_SIZE)) {
     Serial.println("radar: plane icon sprite alloc failed");
     return false;
   }
-  s_plane_icon.setSwapBytes(true);
-  s_plane_icon.pushImage(0, 0, PLANE_ICON_SIZE, PLANE_ICON_SIZE, planeUp,
-                         PLANE_ICON_TRANSPARENT);
-  s_plane_icon.setSwapBytes(false);
+  spr.setSwapBytes(true);
+  spr.pushImage(0, 0, PLANE_ICON_SIZE, PLANE_ICON_SIZE, planeUp,
+                PLANE_ICON_TRANSPARENT);
+  spr.setSwapBytes(false);
 
-  // Recolor mask pixels to panel-correct amber.
   for (int y = 0; y < PLANE_ICON_SIZE; ++y) {
     for (int x = 0; x < PLANE_ICON_SIZE; ++x) {
-      if (s_plane_icon.readPixel(x, y) != PLANE_ICON_TRANSPARENT) {
-        s_plane_icon.drawPixel(x, y, radar::kColorAircraft);
+      if (spr.readPixel(x, y) != PLANE_ICON_TRANSPARENT) {
+        spr.drawPixel(x, y, color);
       }
     }
   }
 
-  s_plane_icon_ready = true;
+  *ready = true;
   return true;
 }
 
+bool ensurePlaneIcon() {
+  return ensureTintedPlaneIcon(s_plane_icon, &s_plane_icon_ready,
+                               radar::kColorAircraft);
+}
+
+bool ensureSelectedPlaneIcon() {
+  return ensureTintedPlaneIcon(s_plane_icon_sel, &s_plane_icon_sel_ready,
+                               s_color_selected);
+}
+
 /** Mini-radar plane silhouette, rotated to heading (degrees, 0 = north). */
-void drawAircraftIcon(int cx, int cy, float heading_deg) {
+void drawAircraftIcon(int cx, int cy, float heading_deg, bool selected) {
   float heading = fmodf(heading_deg, 360.0f);
   if (heading < 0.0f) {
     heading += 360.0f;
   }
 
-  if (ensurePlaneIcon()) {
-    s_plane_icon.pushRotateZoom(s_draw, cx, cy, heading, 1.0f, 1.0f,
-                                PLANE_ICON_TRANSPARENT);
+  LGFX_Sprite* spr = selected ? &s_plane_icon_sel : &s_plane_icon;
+  const bool ok =
+      selected ? ensureSelectedPlaneIcon() : ensurePlaneIcon();
+  if (ok) {
+    spr->pushRotateZoom(s_draw, cx, cy, heading, 1.0f, 1.0f,
+                        PLANE_ICON_TRANSPARENT);
     return;
   }
 
-  s_draw->fillCircle(cx, cy, 3, radar::kColorAircraft);
+  s_draw->fillCircle(cx, cy, 3,
+                     selected ? s_color_selected : radar::kColorAircraft);
 }
 
 bool clampDirtyRect(DirtyRect* r) {
@@ -407,13 +429,21 @@ struct AircraftDrawItem {
   int x = 0;
   int y = 0;
   int dist_sq = 0;
+  bool selected = false;
 };
 
 struct BeyondDotDrawItem {
   int x = 0;
   int y = 0;
   int dist_sq = 0;
+  bool selected = false;
 };
+
+bool hexIsSelected(const char* hex) {
+  const char* selected = sideSelectedHex();
+  return selected != nullptr && selected[0] != '\0' && hex != nullptr &&
+         strcmp(hex, selected) == 0;
+}
 
 void sortDrawItemsFarFirst(AircraftDrawItem* items, size_t count) {
   for (size_t i = 1; i < count; ++i) {
@@ -467,6 +497,7 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
       items[draw_count].x = x;
       items[draw_count].y = y;
       items[draw_count].dist_sq = distSqFromCenter(x, y);
+      items[draw_count].selected = hexIsSelected(planes[i].hex);
       ++draw_count;
       continue;
     }
@@ -480,31 +511,68 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
     dots[dot_count].x = dot_x;
     dots[dot_count].y = dot_y;
     dots[dot_count].dist_sq = distSqFromCenter(dot_x, dot_y);
+    dots[dot_count].selected = hexIsSelected(planes[i].hex);
     ++dot_count;
   }
 
   sortBeyondDotsFarFirst(dots, dot_count);
+  int sel_dot_x = 0;
+  int sel_dot_y = 0;
+  bool have_sel_dot = false;
   for (size_t d = 0; d < dot_count; ++d) {
     const int x = dots[d].x;
     const int y = dots[d].y;
-    drawBeyondRingDot(x, y);
+    if (dots[d].selected) {
+      sel_dot_x = x;
+      sel_dot_y = y;
+      have_sel_dot = true;
+      continue;
+    }
+    drawBeyondRingDot(x, y, false);
     if (dirty != nullptr && dirty_count != nullptr) {
       const int pad = radar::kBeyondRingDotRadiusPx + 2;
       addDirtyRect(dirty, dirty_count, dirty_max, x - pad, y - pad, pad * 2 + 1,
                    pad * 2 + 1);
     }
   }
+  if (have_sel_dot) {
+    drawBeyondRingDot(sel_dot_x, sel_dot_y, true);
+    if (dirty != nullptr && dirty_count != nullptr) {
+      const int pad = radar::kBeyondRingDotRadiusPx + 2;
+      addDirtyRect(dirty, dirty_count, dirty_max, sel_dot_x - pad,
+                   sel_dot_y - pad, pad * 2 + 1, pad * 2 + 1);
+    }
+  }
 
   sortDrawItemsFarFirst(items, draw_count);
+  int sel_icon_x = 0;
+  int sel_icon_y = 0;
+  float sel_hdg = 0.0f;
+  bool have_sel_icon = false;
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
-    drawAircraftIcon(x, y, planes[i].nose_deg);
+    if (items[d].selected) {
+      sel_icon_x = x;
+      sel_icon_y = y;
+      sel_hdg = planes[i].nose_deg;
+      have_sel_icon = true;
+      continue;
+    }
+    drawAircraftIcon(x, y, planes[i].nose_deg, false);
     if (dirty != nullptr && dirty_count != nullptr) {
       constexpr int kIconHalf = 12;
       addDirtyRect(dirty, dirty_count, dirty_max, x - kIconHalf, y - kIconHalf,
                    kIconHalf * 2 + 1, kIconHalf * 2 + 1);
+    }
+  }
+  if (have_sel_icon) {
+    drawAircraftIcon(sel_icon_x, sel_icon_y, sel_hdg, true);
+    if (dirty != nullptr && dirty_count != nullptr) {
+      constexpr int kIconHalf = 12;
+      addDirtyRect(dirty, dirty_count, dirty_max, sel_icon_x - kIconHalf,
+                   sel_icon_y - kIconHalf, kIconHalf * 2 + 1, kIconHalf * 2 + 1);
     }
   }
 }

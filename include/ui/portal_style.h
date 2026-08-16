@@ -1,27 +1,31 @@
 #pragma once
 
-/** Elysium-style HUD CSS + byline for WiFiManager portal pages. */
-constexpr char kPortalHeadHtml[] =
+#include <cstdio>
+#include <cstddef>
+
+#include "ui/radar_theme.h"
+
+/** HUD CSS + byline for WiFiManager pages. Accent colours come from the radar theme. */
+constexpr char kPortalFontLinks[] =
     "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">"
     "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>"
-    "<link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;800&display=swap\" rel=\"stylesheet\">"
-    "<style>"
-    ":root{--amber:#FF9F1C;--amber-bright:#FFB703;--amber-dim:#B57317;--void:#050505;"
-    "--surface:rgba(255,159,28,.05);--border:rgba(255,159,28,.32);--border-strong:rgba(255,159,28,.65)}"
+    "<link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;800&display=swap\" rel=\"stylesheet\">";
+
+constexpr char kPortalCss[] =
     "html,body{background:var(--void)!important;color:var(--amber)!important;"
     "font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace!important;"
     "text-align:center;margin:0;min-height:100%;"
-    "background-image:radial-gradient(ellipse at top,rgba(255,159,28,.07),transparent 55%),"
-    "radial-gradient(ellipse at bottom right,rgba(217,4,41,.04),transparent 50%)!important;"
+    "background-image:radial-gradient(ellipse at top,var(--grad-top),transparent 55%),"
+    "radial-gradient(ellipse at bottom right,var(--grad-bot),transparent 50%)!important;"
     "background-attachment:fixed}"
     "body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9000;"
-    "background:repeating-linear-gradient(to bottom,rgba(255,159,28,.05) 0 1px,transparent 1px 3px);"
+    "background:repeating-linear-gradient(to bottom,var(--scan) 0 1px,transparent 1px 3px);"
     "mix-blend-mode:screen;opacity:.45}"
     "body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:8999;"
     "background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.55) 100%)}"
     ".wrap{position:relative;text-align:left;display:inline-block;min-width:260px;max-width:520px;"
     "width:100%;margin:1.5rem auto;padding:1.25rem 1.15rem 1.4rem;box-sizing:border-box;"
-    "background:linear-gradient(180deg,rgba(255,159,28,.04),rgba(255,159,28,.015)),rgba(5,5,5,.9);"
+    "background:linear-gradient(180deg,var(--wrap-a),var(--wrap-b)),var(--void);"
     "border:1px solid var(--border);"
     "clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}"
     "@media (max-width:640px){"
@@ -35,7 +39,7 @@ constexpr char kPortalHeadHtml[] =
     ".wrap::after{bottom:6px;right:6px;border-bottom:1px solid;border-right:1px solid}"
     "h1{font-family:Orbitron,'JetBrains Mono',monospace!important;font-size:1.15rem!important;"
     "letter-spacing:.28em;text-transform:uppercase;color:var(--amber)!important;"
-    "text-shadow:0 0 8px rgba(255,159,28,.55),0 0 18px rgba(255,159,28,.25);margin:.2rem 0 .4rem}"
+    "text-shadow:0 0 8px var(--glow),0 0 18px var(--glow-soft);margin:.2rem 0 .4rem}"
     "h2,h3{font-family:Orbitron,'JetBrains Mono',monospace;letter-spacing:.2em;text-transform:uppercase;"
     "font-size:.85rem;color:var(--amber);margin:1rem 0 .5rem}"
     ".wm-byline{margin:.15rem 0 1.1rem;color:var(--amber-dim)!important;font-size:.68rem;"
@@ -44,13 +48,13 @@ constexpr char kPortalHeadHtml[] =
     "label,dt,.msg h4{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amber-dim)!important}"
     "p,dd,td,small,.msg{font-size:.78rem;letter-spacing:.04em;color:var(--amber)!important}"
     "a{color:var(--amber-bright)!important;font-weight:500;text-decoration:none;letter-spacing:.08em}"
-    "a:hover{color:#fff!important;text-shadow:0 0 8px rgba(255,159,28,.7)}"
+    "a:hover{color:#fff!important;text-shadow:0 0 8px var(--glow-hover)}"
     "input,select,textarea{background:var(--surface)!important;border:1px solid var(--border)!important;"
     "border-radius:0!important;color:var(--amber)!important;padding:10px!important;width:100%;"
     "box-sizing:border-box;outline:none;font-family:inherit;font-size:.8rem!important;margin:6px 0}"
     "input:focus,select:focus{border-color:var(--amber)!important;box-shadow:0 0 0 1px var(--amber)}"
     "input[type=radio],input[type=checkbox]{width:auto!important;accent-color:var(--amber)}"
-    "button,input[type=button],input[type=submit]{background:rgba(255,159,28,.08)!important;"
+    "button,input[type=button],input[type=submit]{background:var(--btn-bg)!important;"
     "border:1px solid var(--border-strong)!important;border-radius:0!important;color:var(--amber)!important;"
     "line-height:2.2rem;font-size:.72rem!important;letter-spacing:.2em;text-transform:uppercase;"
     "font-family:inherit;width:100%;cursor:pointer;margin:8px 0;"
@@ -61,29 +65,66 @@ constexpr char kPortalHeadHtml[] =
     "button.D,button.D:hover{background:rgba(217,4,41,.15)!important;border-color:#D90429!important;"
     "color:#ff6b81!important}"
     "button:active{opacity:.7!important}"
-    ".msg{background:rgba(255,159,28,.05)!important;border:1px solid var(--border)!important;"
+    ".msg{background:var(--surface)!important;border:1px solid var(--border)!important;"
     "border-left:3px solid var(--amber)!important;border-radius:0!important;color:var(--amber)!important;"
     "padding:14px;margin:14px 0;text-align:left}"
     ".msg.P{border-left-color:var(--amber-bright)!important}"
     ".msg.P h4{color:var(--amber-bright)!important}"
     ".msg.D{border-left-color:#D90429!important}"
     ".msg.D h4{color:#ff6b81!important}"
-    ".msg.S{border-left-color:#5cb85c!important}"
-    ".msg.S h4{color:#8dff9a!important}"
+    ".msg.S{border-left-color:var(--amber-bright)!important}"
+    ".msg.S h4{color:var(--amber-bright)!important}"
     "hr{border:0;border-top:1px solid var(--border);margin:1rem 0}"
     "table{width:100%;border-collapse:collapse;font-size:.75rem}"
-    "th,td{border-bottom:1px solid rgba(255,159,28,.15);padding:6px 4px;text-align:left}"
+    "th,td{border-bottom:1px solid var(--th-line);padding:6px 4px;text-align:left}"
     ".q[role=img]{-webkit-filter:invert(1) sepia(1) saturate(5) hue-rotate(5deg);filter:invert(1) sepia(1) saturate(5) hue-rotate(5deg)}"
-    ".hud-home{margin:10px 0;padding:10px;border:1px solid rgba(255,159,28,.2);background:rgba(255,159,28,.03);"
+    ".hud-home{margin:10px 0;padding:10px;border:1px solid var(--home-border);background:var(--home-bg);"
     "font-size:.72rem;letter-spacing:.12em;color:var(--amber-dim)}"
     ".hud-home b{color:var(--amber);font-weight:500}"
     "input:disabled,select:disabled{opacity:.4;cursor:not-allowed}"
     ".msg.flash{animation:hudFade 1.6s ease forwards}"
     "@keyframes hudFade{0%,55%{opacity:1}100%{opacity:0;height:0;margin:0;padding:0;border:0}}"
     "body.invert,body.invert a,body.invert h1{background-color:transparent!important;color:var(--amber)!important}"
-    "body.invert .msg{background:rgba(255,159,28,.05)!important;border-color:var(--border)!important}"
-    "</style>"
+    "body.invert .msg{background:var(--surface)!important;border-color:var(--border)!important}";
+
+constexpr char kPortalScript[] =
     "<script>"
+    "if(/\\/paramsave$/i.test(location.pathname)){"
+    "location.replace('/param#saved');"
+    "}"
+    "function hexRgb(c){return '#'+[c[0],c[1],c[2]].map(function(n){return ('0'+Number(n).toString(16)).slice(-2);}).join('');}"
+    "function rgbaRgb(c,a){return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';}"
+    "function applyPortalTheme(bg,ac,sw,gr){"
+    "var s=document.documentElement.style;"
+    "s.setProperty('--void',hexRgb(bg));"
+    "s.setProperty('--amber',hexRgb(ac));"
+    "s.setProperty('--amber-bright',hexRgb(sw));"
+    "s.setProperty('--amber-dim',hexRgb(gr));"
+    "s.setProperty('--surface',rgbaRgb(ac,.05));"
+    "s.setProperty('--border',rgbaRgb(ac,.32));"
+    "s.setProperty('--border-strong',rgbaRgb(ac,.65));"
+    "s.setProperty('--glow',rgbaRgb(ac,.55));"
+    "s.setProperty('--glow-soft',rgbaRgb(ac,.25));"
+    "s.setProperty('--glow-hover',rgbaRgb(ac,.7));"
+    "s.setProperty('--scan',rgbaRgb(ac,.05));"
+    "s.setProperty('--grad-top',rgbaRgb(ac,.07));"
+    "s.setProperty('--grad-bot',rgbaRgb(ac,.04));"
+    "s.setProperty('--wrap-a',rgbaRgb(ac,.04));"
+    "s.setProperty('--wrap-b',rgbaRgb(ac,.015));"
+    "s.setProperty('--th-line',rgbaRgb(ac,.15));"
+    "s.setProperty('--home-border',rgbaRgb(ac,.2));"
+    "s.setProperty('--home-bg',rgbaRgb(ac,.03));"
+    "s.setProperty('--btn-bg',rgbaRgb(ac,.08));"
+    "}"
+    "function parseRgb(v){return (v||'').split(',').map(Number);}"
+    "function themeFromSelect(){"
+    "var sel=document.getElementById('radar_theme');"
+    "if(!sel||!sel.options.length)return;"
+    "var o=sel.options[sel.selectedIndex];"
+    "if(!o||!o.getAttribute('data-ac'))return;"
+    "applyPortalTheme(parseRgb(o.getAttribute('data-bg')),parseRgb(o.getAttribute('data-ac')),"
+    "parseRgb(o.getAttribute('data-sw')),parseRgb(o.getAttribute('data-gr')));"
+    "}"
     "function syncHomeCoords(){"
     "var h=document.getElementById('use_home');"
     "var lat=document.getElementById('radar_lat');"
@@ -93,7 +134,9 @@ constexpr char kPortalHeadHtml[] =
     "}"
     "document.addEventListener('DOMContentLoaded',function(){"
     "var h1=document.querySelector('h1');"
-    "if(h1&&/setup saved/i.test(h1.textContent||'')){"
+    "var h3=document.querySelector('h3');"
+    "if((h1&&/setup saved/i.test(h1.textContent||''))||"
+    "(h3&&/setup saved/i.test(h3.textContent||''))){"
     "location.replace('/param#saved');return;"
     "}"
     "if(h1&&!document.querySelector('.wm-byline')){"
@@ -114,5 +157,32 @@ constexpr char kPortalHeadHtml[] =
     "}"
     "var h=document.getElementById('use_home');"
     "if(h){h.addEventListener('change',syncHomeCoords);syncHomeCoords();}"
+    "var sel=document.getElementById('radar_theme');"
+    "if(sel){sel.addEventListener('change',themeFromSelect);}"
     "});"
     "</script>";
+
+inline void portalBuildHeadHtml(char* buf, size_t len,
+                                const ui::radar::ThemePalette& t) {
+  const ui::radar::ThemeRgb& bg = t.bg;
+  const ui::radar::ThemeRgb& ac = t.aircraft;
+  const ui::radar::ThemeRgb& br = t.sweep;
+  const ui::radar::ThemeRgb& dm = t.grid;
+  snprintf(
+      buf, len,
+      "%s<style>"
+      ":root{--amber:#%02X%02X%02X;--amber-bright:#%02X%02X%02X;--amber-dim:#%02X%02X%02X;"
+      "--void:#%02X%02X%02X;"
+      "--surface:rgba(%u,%u,%u,.05);--border:rgba(%u,%u,%u,.32);--border-strong:rgba(%u,%u,%u,.65);"
+      "--glow:rgba(%u,%u,%u,.55);--glow-soft:rgba(%u,%u,%u,.25);--glow-hover:rgba(%u,%u,%u,.7);"
+      "--scan:rgba(%u,%u,%u,.05);--grad-top:rgba(%u,%u,%u,.07);--grad-bot:rgba(%u,%u,%u,.04);"
+      "--wrap-a:rgba(%u,%u,%u,.04);--wrap-b:rgba(%u,%u,%u,.015);"
+      "--th-line:rgba(%u,%u,%u,.15);--home-border:rgba(%u,%u,%u,.2);--home-bg:rgba(%u,%u,%u,.03);"
+      "--btn-bg:rgba(%u,%u,%u,.08)}"
+      "%s</style>%s",
+      kPortalFontLinks, ac.r, ac.g, ac.b, br.r, br.g, br.b, dm.r, dm.g, dm.b, bg.r,
+      bg.g, bg.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g,
+      ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b,
+      ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, ac.r,
+      ac.g, ac.b, ac.r, ac.g, ac.b, ac.r, ac.g, ac.b, kPortalCss, kPortalScript);
+}

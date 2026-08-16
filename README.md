@@ -32,20 +32,20 @@ Momentary switches to **GND** (internal pull-up). Leave a pin unwired if you do 
 
 | Button | ESP32 | Action |
 | --- | --- | --- |
-| Theme | GPIO **13** | Cycle colour theme |
+| Theme | GPIO **27** | Cycle colour theme |
 | Range | GPIO **14** | Cycle range preset (5 → 10 → 15 → 25 km) |
-| Next | GPIO **27** | Next aircraft on the side card |
+| Next | GPIO **13** | Next aircraft on the side card |
 
 ```
-GPIO 13 ── theme ── GND
+GPIO 13 ── next  ── GND
 GPIO 14 ── range ── GND
-GPIO 27 ── next  ── GND
+GPIO 27 ── theme ── GND
 ```
 
 ## What it shows
 
 - **Round screen:** north-up radar from mini-radar-c3 — themes, range rings, sweep, runway overlay, aircraft icons, rim dots for traffic beyond the ring.
-- **Side card:** place name and range, then a cycling detail card (callsign, type, registration, speed, altitude, heading, distance). New pickups flash the callsign; range changes flash the radius.
+- **Side card:** place name and range, then a detail card for the selected aircraft (callsign, type, registration, speed, altitude, heading, distance). Next button skips aircraft; new pickups flash the callsign; range changes flash the radius.
 
 Position defaults to Shrewsbury (`52.699468, -2.787509`) and can be changed in the portal.
 
@@ -74,9 +74,9 @@ cp include/secrets.h.example src/secrets.h
 
 | Action | Effect |
 |--------|--------|
-| **Theme button** (GPIO 13) | Cycle colour theme |
+| **Theme button** (GPIO 27) | Cycle colour theme |
 | **Range button** (GPIO 14) | Cycle range preset (5 → 10 → 15 → 25 km); saved to flash |
-| **Next button** (GPIO 27) | Skip to the next aircraft on the side card |
+| **Next button** (GPIO 13) | Skip to the next aircraft on the side card |
 | **BOOT short tap** | Cycle colour theme |
 | **BOOT hold ~1.5 s** | Cycle range preset |
 | **BOOT hold ~8 s** | Clear Wi‑Fi, location, and units; reboot into setup portal |

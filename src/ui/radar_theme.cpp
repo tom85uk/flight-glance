@@ -227,7 +227,14 @@ const char* themeName(uint8_t index) {
   return kThemes[index].name;
 }
 
-const ThemePalette& themeCurrent() { return kThemes[s_theme_index]; }
+const ThemePalette& themeAt(uint8_t index) {
+  if (index >= kThemeCount) {
+    return kThemes[kDefaultThemeIndex];
+  }
+  return kThemes[index];
+}
+
+const ThemePalette& themeCurrent() { return themeAt(s_theme_index); }
 
 void saveThemeFromPortal(const char* value) {
   if (value == nullptr || value[0] == '\0') {

@@ -20,7 +20,7 @@ bool s_ready = false;
 unsigned long s_banner_until_ms = 0;
 bool s_banner_active = false;
 int s_card_index = 0;
-unsigned long s_last_cycle_ms = 0;
+char s_selected_hex[7] = "";
 bool s_hud_active = false;
 
 lgfx::LovyanGFX* s_g = &sideTft;
@@ -122,26 +122,17 @@ void drawAircraftCard(const services::adsb::Aircraft& ac, int index, size_t tota
   const char* type_label = services::adsb::typeLabel(ac);
   s_g->print(type_label[0] ? type_label : "----");
 
-  int stats_y = 58;
-  if (ac.reg[0] != '\0' && ac.desc[0] == '\0') {
-    s_g->setTextColor(colDim(), colBg());
-    s_g->print("  ");
-    s_g->print(ac.reg);
-  } else if (ac.reg[0] != '\0') {
-    s_g->setTextColor(colDim(), colBg());
-    s_g->setCursor(4, 52);
-    s_g->print(ac.reg);
-    stats_y = 64;
-  }
-
+  constexpr int kStatsY = 62;
+  constexpr int kRow = 12;
   char buf[20];
+  drawLabel(4, kStatsY, "REG", ac.reg[0] ? ac.reg : "----", colFg());
   snprintf(buf, sizeof(buf), "%d kt", static_cast<int>(lroundf(ac.gs_knots)));
-  drawLabel(4, stats_y, "SPD", buf, colFg());
-  drawLabel(4, stats_y + 12, "ALT", ac.alt[0] ? ac.alt : "----", colAlt());
+  drawLabel(4, kStatsY + kRow, "SPD", buf, colFg());
+  drawLabel(4, kStatsY + kRow * 2, "ALT", ac.alt[0] ? ac.alt : "----", colAlt());
 
   snprintf(buf, sizeof(buf), "%03d",
            (static_cast<int>(lroundf(ac.nose_deg)) + 360) % 360);
-  drawLabel(4, stats_y + 24, "HDG", buf, colFg());
+  drawLabel(4, kStatsY + kRow * 3, "HDG", buf, colFg());
 
   const float dist = distanceKm(ac.lat, ac.lon);
   if (ui::radar::useMiles()) {
@@ -149,12 +140,12 @@ void drawAircraftCard(const services::adsb::Aircraft& ac, int index, size_t tota
   } else {
     snprintf(buf, sizeof(buf), "%.1f km", dist);
   }
-  drawLabel(4, stats_y + 36, "DST", buf, colType());
+  drawLabel(4, kStatsY + kRow * 4, "DST", buf, colType());
 
   snprintf(buf, sizeof(buf), "%d/%u", index + 1, static_cast<unsigned>(total));
   s_g->setTextColor(colDim(), colBg());
   s_g->setTextDatum(textdatum_t::top_right);
-  s_g->drawString(buf, config::kSideWidth - 4, 112);
+  s_g->drawString(buf, config::kSideWidth - 4, 116);
   s_g->setTextDatum(textdatum_t::top_left);
   s_g->fillRect(0, config::kSideHeight - 4, config::kSideWidth, 4, colBg());
 }
@@ -174,6 +165,34 @@ void drawEmptyHud(const char* place, const char* range) {
   if (range != nullptr && range[0] != '\0') {
     s_g->print(range);
   }
+}
+
+void clearSelected() {
+  s_card_index = 0;
+  s_selected_hex[0] = '\0';
+}
+
+int indexOfHex(const services::adsb::Aircraft* planes, size_t n, const char* hex) {
+  if (planes == nullptr || hex == nullptr || hex[0] == '\0') {
+    return -1;
+  }
+  for (size_t i = 0; i < n; ++i) {
+    if (strcmp(planes[i].hex, hex) == 0) {
+      return static_cast<int>(i);
+    }
+  }
+  return -1;
+}
+
+void selectIndex(int index, const services::adsb::Aircraft* planes, size_t n) {
+  if (planes == nullptr || n == 0) {
+    clearSelected();
+    return;
+  }
+  s_card_index = ((index % static_cast<int>(n)) + static_cast<int>(n)) %
+                 static_cast<int>(n);
+  strncpy(s_selected_hex, planes[s_card_index].hex, sizeof(s_selected_hex) - 1);
+  s_selected_hex[sizeof(s_selected_hex) - 1] = '\0';
 }
 
 void placeAndRange(char* place_buf, size_t place_len, char* range_buf,
@@ -201,11 +220,14 @@ void paintRadarHud() {
   const services::adsb::Aircraft* planes = services::adsb::aircraftList();
 
   if (n == 0 || planes == nullptr) {
-    s_card_index = 0;
+    clearSelected();
     drawEmptyHud(place_buf, range_label);
   } else {
-    if (s_card_index >= static_cast<int>(n)) {
-      s_card_index = 0;
+    const int found = indexOfHex(planes, n, s_selected_hex);
+    if (found >= 0) {
+      selectIndex(found, planes, n);
+    } else {
+      selectIndex(s_card_index, planes, n);
     }
     drawAircraftCard(planes[s_card_index], s_card_index, n, place_buf,
                      range_label);
@@ -221,7 +243,7 @@ bool sideInit() {
   s_ready = true;
   s_banner_active = false;
   s_hud_active = false;
-  s_card_index = 0;
+  clearSelected();
   sideShowStatus("Flight Glance", "side card");
   return true;
 }
@@ -239,7 +261,6 @@ void sideShowRadarInfo() {
     return;
   }
   s_hud_active = true;
-  s_last_cycle_ms = millis();
   paintRadarHud();
 }
 
@@ -303,18 +324,25 @@ void sideShowAircraftFlash(const char* callsign, const char* type) {
   flushSide();
 }
 
+const char* sideSelectedHex() {
+  if (!s_hud_active || s_selected_hex[0] == '\0') {
+    return "";
+  }
+  return s_selected_hex;
+}
+
 void sideAdvanceCard() {
   if (!s_ready || !s_hud_active) {
     return;
   }
   s_banner_active = false;
   const size_t n = services::adsb::aircraftCount();
-  if (n == 0) {
+  const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+  if (n == 0 || planes == nullptr) {
     paintRadarHud();
     return;
   }
-  s_card_index = (s_card_index + 1) % static_cast<int>(n);
-  s_last_cycle_ms = millis();
+  selectIndex(s_card_index + 1, planes, n);
   paintRadarHud();
 }
 
@@ -330,21 +358,5 @@ void sidePoll() {
         paintRadarHud();
       }
     }
-    return;
   }
-
-  if (!s_hud_active) {
-    return;
-  }
-
-  const size_t n = services::adsb::aircraftCount();
-  if (n <= 1) {
-    return;
-  }
-  if (millis() - s_last_cycle_ms < config::kSideCycleMs) {
-    return;
-  }
-  s_last_cycle_ms = millis();
-  s_card_index = (s_card_index + 1) % static_cast<int>(n);
-  paintRadarHud();
 }

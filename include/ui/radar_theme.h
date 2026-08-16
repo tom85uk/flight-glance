@@ -93,6 +93,7 @@ void themePrev();
 uint8_t themeIndex();
 size_t themeCount();
 const char* themeName(uint8_t index);
+const ThemePalette& themeAt(uint8_t index);
 const ThemePalette& themeCurrent();
 /** Portal theme index as decimal string. */
 void saveThemeFromPortal(const char* value);

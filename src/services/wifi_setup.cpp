@@ -150,7 +150,7 @@ WiFiManagerParameter s_param_lon("radar_lon", "Longitude", "0", kCoordParamLen,
 char s_range_html[520];
 WiFiManagerParameter s_param_range_html(s_range_html);
 
-char s_theme_html[720];
+char s_theme_html[1800];
 WiFiManagerParameter s_param_theme_html(s_theme_html);
 
 char s_grid_html[420];
@@ -175,6 +175,21 @@ WiFiManagerParameter s_param_cardinals("show_cardinals", "Show N E S W", "T", 2,
 bool nearHome(double lat, double lon) {
   return fabs(lat - services::location::homeLat()) < 1e-4 &&
          fabs(lon - services::location::homeLon()) < 1e-4;
+}
+
+char s_portal_head[12288];
+uint8_t s_portal_head_theme = 255;
+
+void rebuildPortalHead() {
+  portalBuildHeadHtml(s_portal_head, sizeof(s_portal_head),
+                      ui::radar::themeCurrent());
+  s_portal_head_theme = ui::radar::themeIndex();
+}
+
+void maybeRebuildPortalHead() {
+  if (s_portal_head_theme != ui::radar::themeIndex()) {
+    rebuildPortalHead();
+  }
 }
 
 void refreshPortalParamDefaults() {
@@ -240,11 +255,17 @@ void refreshPortalParamDefaults() {
         s_theme_html, sizeof(s_theme_html),
         "<br/><label for='radar_theme'>Colour theme</label><br/>"
         "<select id='radar_theme' name='radar_theme'>"));
-    for (size_t i = 0; i < n && used + 48 < sizeof(s_theme_html); ++i) {
+    for (size_t i = 0; i < n && used + 160 < sizeof(s_theme_html); ++i) {
+      const ui::radar::ThemePalette& pal =
+          ui::radar::themeAt(static_cast<uint8_t>(i));
       used += static_cast<size_t>(snprintf(
           s_theme_html + used, sizeof(s_theme_html) - used,
-          "<option value='%u'%s>%s</option>", static_cast<unsigned>(i),
-          (i == theme_idx) ? " selected" : "", ui::radar::themeName(static_cast<uint8_t>(i))));
+          "<option value='%u'%s data-bg='%u,%u,%u' data-ac='%u,%u,%u' "
+          "data-sw='%u,%u,%u' data-gr='%u,%u,%u'>%s</option>",
+          static_cast<unsigned>(i), (i == theme_idx) ? " selected" : "",
+          pal.bg.r, pal.bg.g, pal.bg.b, pal.aircraft.r, pal.aircraft.g,
+          pal.aircraft.b, pal.sweep.r, pal.sweep.g, pal.sweep.b, pal.grid.r,
+          pal.grid.g, pal.grid.b, pal.name));
     }
     snprintf(s_theme_html + used, sizeof(s_theme_html) - used, "</select><br/>");
   }
@@ -279,6 +300,7 @@ void refreshPortalParamDefaults() {
   snprintf(s_cardinals_checkbox_attrs, sizeof(s_cardinals_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::showCardinals() ? " checked" : "");
   s_param_cardinals.setValue("T", 2);
+  rebuildPortalHead();
 }
 
 bool portalArgChecked(const char* id) {
@@ -444,7 +466,6 @@ void ensureWifiManager() {
   }
   s_wm.setTitle("Flight Radar");
   s_wm.setDarkMode(true);
-  s_wm.setCustomHeadElement(kPortalHeadHtml);
   s_wm.setCustomMenuHTML(kPortalConfigureRadarHtml);
   // Move params off the WiFi page (sets _paramsInWifi=false), then restore our
   // menu so "Configure Radar" stays instead of WiFiManager's "Setup" button.
@@ -458,6 +479,7 @@ void ensureWifiManager() {
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
   attachPortalParams(s_wm);
+  s_wm.setCustomHeadElement(s_portal_head);
   s_wm_configured = true;
 }
 
@@ -775,6 +797,7 @@ void wifiLoop() {
       startLanWebPortal();
     }
     if (s_wm.getWebPortalActive() || s_wm.getConfigPortalActive()) {
+      maybeRebuildPortalHead();
       bootButtonPollLongPress();
       touchButtonPollLongPress();
       s_wm.process();

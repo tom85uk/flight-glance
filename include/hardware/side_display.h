@@ -20,8 +20,11 @@ void sideShowThemeFlash();
 /** Brief big tag for a newly detected aircraft (callsign + type). */
 void sideShowAircraftFlash(const char* callsign, const char* type = nullptr);
 
-/** Ends a banner flash, cycles the selected aircraft card. */
+/** Ends a banner flash and restores the HUD. */
 void sidePoll();
 
-/** Skip to the next aircraft on the side card (resets the auto-cycle timer). */
+/** Skip to the next aircraft on the side card. */
 void sideAdvanceCard();
+
+/** ICAO hex of the aircraft on the side card, or empty if none. */
+const char* sideSelectedHex();
