@@ -310,12 +310,12 @@ void sideShowRangeFlash() {
   }
 
   char label[16];
-  const float ring3 = ui::radar::rangeCurrent().ring3_km;
+  const float outer_km = ui::radar::rangeCurrent().outer_km;
   if (ui::radar::useMiles()) {
-    const int mi = static_cast<int>(lroundf(ring3 / 1.609344f));
+    const int mi = static_cast<int>(lroundf(outer_km / 1.609344f));
     snprintf(label, sizeof(label), "%d Miles", mi);
   } else {
-    const int km = static_cast<int>(lroundf(ring3));
+    const int km = static_cast<int>(lroundf(outer_km));
     snprintf(label, sizeof(label), "%d Km", km);
   }
 

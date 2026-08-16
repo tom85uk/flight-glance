@@ -95,6 +95,7 @@ constexpr double kDefaultRadarLon = -2.787509;
 
 /** Poll adsb.fi (API public limit: 1 req/s). */
 constexpr unsigned long kAdsbFetchIntervalMs = 3000;
+/** Multiplier on the labelled outer-ring radius for the ADS-B query (1.0 = exact). */
 constexpr float kAdsbFetchRadiusScale = 1.0f;
 constexpr bool kAdsbShowGroundAircraft = false;
 

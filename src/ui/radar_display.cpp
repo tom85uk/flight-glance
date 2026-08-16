@@ -186,7 +186,7 @@ void initLabelMetrics() {
   char label[12];
   for (size_t i = 0; i < radar::kRangePresetCount; ++i) {
     for (bool miles : {false, true}) {
-      radar::formatRing3Label(label, sizeof(label), radar::kRangePresets[i].ring3_km,
+      radar::formatRing3Label(label, sizeof(label), radar::kRangePresets[i].outer_km,
                               miles);
       const int w = tft.textWidth(label);
       if (w > s_scale_label_max_w) {
@@ -242,25 +242,20 @@ void initPalette() {
   }
 }
 
-constexpr float kKmPerDeg = 111.0f;
+constexpr float kKmPerDeg = 111.32f;
+constexpr float kDegToRad = 0.01745329252f;
 
 void offsetKmFromCenter(float lat, float lon, float* dx_km, float* dy_km,
                         float* dist_km) {
-  *dx_km =
-      static_cast<float>(lon - services::location::lon()) * kKmPerDeg;
-  *dy_km =
-      static_cast<float>(lat - services::location::lat()) * kKmPerDeg;
+  const float lat0 = static_cast<float>(services::location::lat());
+  const float cos_lat = cosf(lat0 * kDegToRad);
+  *dx_km = static_cast<float>(lon - services::location::lon()) * kKmPerDeg *
+           cos_lat;
+  *dy_km = (lat - lat0) * kKmPerDeg;
   *dist_km = sqrtf((*dx_km) * (*dx_km) + (*dy_km) * (*dy_km));
 }
 
-float innerRingMaxKm() {
-  const float outer_km = radar::rangeCurrent().outer_km;
-  return outer_km * (static_cast<float>(radar::kGridOuterRadius -
-                                       radar::kAircraftInsideRingInsetPx) /
-                     static_cast<float>(radar::kGridOuterRadius));
-}
-
-/** Flat lat/lon as x/y: 1° ≈ 111 km, north = screen up. */
+/** Equirectangular km vs the labelled outer ring. */
 void latLonToScreen(float lat, float lon, int* out_x, int* out_y) {
   const float outer_km = radar::rangeCurrent().outer_km;
   const float px_per_km = static_cast<float>(radar::kGridOuterRadius) / outer_km;
@@ -274,7 +269,9 @@ void latLonToScreen(float lat, float lon, int* out_x, int* out_y) {
   *out_y = radar::kCenterY - static_cast<int>(lroundf(dy_km * px_per_km));
 }
 
-bool isInsideOuterRingKm(float dist_km) { return dist_km <= innerRingMaxKm(); }
+bool isInsideOuterRingKm(float dist_km) {
+  return dist_km <= radar::rangeCurrent().outer_km;
+}
 
 int distSqFromCenter(int x, int y) {
   const int dx = x - radar::kCenterX;

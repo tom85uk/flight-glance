@@ -1,6 +1,6 @@
 #include "ui/radar_range.h"
 
-#include "ui/radar_theme.h"
+#include "config.h"
 
 #include <Preferences.h>
 #include <cmath>
@@ -114,10 +114,7 @@ const RangePreset& rangeCurrent() { return kRangePresets[s_range_index]; }
 uint8_t rangeIndex() { return s_range_index; }
 
 float fetchRadiusKm() {
-  const float outer_km = rangeCurrent().outer_km;
-  const float screen_r_px =
-      static_cast<float>(kCenterX - kBeyondRingScreenMarginPx);
-  return outer_km * (screen_r_px / static_cast<float>(kGridOuterRadius));
+  return rangeCurrent().outer_km * config::kAdsbFetchRadiusScale;
 }
 
 bool useMiles() { return s_use_miles; }
@@ -202,7 +199,7 @@ void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles) {
 }
 
 void formatCurrentRing3Label(char* buf, size_t len) {
-  formatRing3Label(buf, len, rangeCurrent().ring3_km, s_use_miles);
+  formatRing3Label(buf, len, rangeCurrent().outer_km, s_use_miles);
 }
 
 void unitsReset() {

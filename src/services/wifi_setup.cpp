@@ -225,16 +225,16 @@ void refreshPortalParamDefaults() {
   char opt2[12];
   char opt3[12];
   ui::radar::formatRing3Label(opt0, sizeof(opt0),
-                              ui::radar::kRangePresets[0].ring3_km,
+                              ui::radar::kRangePresets[0].outer_km,
                               ui::radar::useMiles());
   ui::radar::formatRing3Label(opt1, sizeof(opt1),
-                              ui::radar::kRangePresets[1].ring3_km,
+                              ui::radar::kRangePresets[1].outer_km,
                               ui::radar::useMiles());
   ui::radar::formatRing3Label(opt2, sizeof(opt2),
-                              ui::radar::kRangePresets[2].ring3_km,
+                              ui::radar::kRangePresets[2].outer_km,
                               ui::radar::useMiles());
   ui::radar::formatRing3Label(opt3, sizeof(opt3),
-                              ui::radar::kRangePresets[3].ring3_km,
+                              ui::radar::kRangePresets[3].outer_km,
                               ui::radar::useMiles());
   snprintf(
       s_range_html, sizeof(s_range_html),
