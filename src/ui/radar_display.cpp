@@ -483,11 +483,17 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
   size_t draw_count = 0;
   size_t dot_count = 0;
 
+  bool selected_claimed = false;
   for (size_t i = 0; i < n; ++i) {
     float dx_km = 0.0f;
     float dy_km = 0.0f;
     float dist_km = 0.0f;
     offsetKmFromCenter(planes[i].lat, planes[i].lon, &dx_km, &dy_km, &dist_km);
+
+    const bool selected = !selected_claimed && hexIsSelected(planes[i].hex);
+    if (selected) {
+      selected_claimed = true;
+    }
 
     if (isInsideOuterRingKm(dist_km)) {
       int x = 0;
@@ -497,7 +503,7 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
       items[draw_count].x = x;
       items[draw_count].y = y;
       items[draw_count].dist_sq = distSqFromCenter(x, y);
-      items[draw_count].selected = hexIsSelected(planes[i].hex);
+      items[draw_count].selected = selected;
       ++draw_count;
       continue;
     }
@@ -511,7 +517,7 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
     dots[dot_count].x = dot_x;
     dots[dot_count].y = dot_y;
     dots[dot_count].dist_sq = distSqFromCenter(dot_x, dot_y);
-    dots[dot_count].selected = hexIsSelected(planes[i].hex);
+    dots[dot_count].selected = selected;
     ++dot_count;
   }
 
@@ -832,16 +838,6 @@ void blitGridRectToPanel(int x, int y, int w, int h) {
   }
 }
 
-void restorePreviousAircraftAreas() {
-  if (!s_grid_valid) {
-    return;
-  }
-  for (size_t i = 0; i < s_prev_dirty_count; ++i) {
-    const DirtyRect& r = s_prev_dirty[i];
-    blitGridRectToPanel(r.x, r.y, r.w, r.h);
-  }
-}
-
 void restoreSweepCorridor(float deg) {
   if (!s_grid_valid) {
     return;
@@ -952,16 +948,6 @@ void paintFull() {
   paintDynamicOverlays();
 }
 
-void paintAircraftRefresh() {
-  if (!s_grid_valid) {
-    paintFull();
-    return;
-  }
-  restorePreviousSweepArea();
-  restorePreviousAircraftAreas();
-  paintDynamicOverlays();
-}
-
 void restrokeStaticGrid() {
   const DrawScope scope(tft);
   displayFontEnsureLoaded(tft);
@@ -983,6 +969,13 @@ void eraseSweepLine(float deg) {
                    radar::kSweepLineHalfWidth + 1.0f, radar::kColorBackground);
 }
 
+void erasePreviousAircraftAreas() {
+  for (size_t i = 0; i < s_prev_dirty_count; ++i) {
+    const DirtyRect& r = s_prev_dirty[i];
+    tft.fillRect(r.x, r.y, r.w, r.h, radar::kColorBackground);
+  }
+}
+
 void tickSweep() {
   if (!s_sweep_pref_enabled) {
     return;
@@ -998,6 +991,9 @@ void tickSweep() {
     restorePreviousSweepArea();
   } else if (s_prev_sweep_valid) {
     eraseSweepLine(s_prev_sweep_head_deg);
+  }
+  erasePreviousAircraftAreas();
+  if (!s_grid_valid) {
     restrokeStaticGrid();
   }
   s_sweep_head_deg = wrapDeg(s_sweep_head_deg + sweepStepDeg());
@@ -1048,8 +1044,8 @@ void radarDisplayDraw() {
 }
 
 void radarDisplayRefreshAircraft() {
-  initPalette();
-  paintAircraftRefresh();
+  // Sweep already paints aircraft each frame from the live list. A full
+  // fillScreen here is what made the beam hitch when ADS-B data arrived.
 }
 
 void radarDisplayTick() {

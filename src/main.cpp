@@ -207,8 +207,8 @@ void ensureAdsbTask() {
   if (g_adsb_task != nullptr) {
     return;
   }
-  // Core 1 with the UI — blocking TLS yields so Wi‑Fi on core 0 stays alive.
-  xTaskCreatePinnedToCore(adsbTaskFn, "adsbFetch", 8192, nullptr, 1, &g_adsb_task,
+  // Below the UI loop (core 1, pri 1) so JSON parse cannot stall the sweep.
+  xTaskCreatePinnedToCore(adsbTaskFn, "adsbFetch", 8192, nullptr, 0, &g_adsb_task,
                           1);
 }
 
@@ -297,11 +297,8 @@ void loop() {
         showRadarIfConnected();
       }
       if (services::adsb::consumeUpdated()) {
-        ui::radarDisplayTick();
         flashIfNewAircraftPickedUp();
         sideShowRadarInfo();
-        ui::radarDisplayRefreshAircraft();
-        ui::radarDisplayTick();
       }
     }
   }

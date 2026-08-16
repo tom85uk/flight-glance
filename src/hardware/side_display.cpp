@@ -14,6 +14,8 @@
 #include "ui/radar_range.h"
 #include "ui/radar_theme.h"
 
+#include <time.h>
+
 namespace {
 
 bool s_ready = false;
@@ -22,6 +24,8 @@ bool s_banner_active = false;
 int s_card_index = 0;
 char s_selected_hex[7] = "";
 bool s_hud_active = false;
+bool s_empty_hud = false;
+int s_clock_sec = -1;
 
 lgfx::LovyanGFX* s_g = &sideTft;
 
@@ -150,18 +154,39 @@ void drawAircraftCard(const services::adsb::Aircraft& ac, int index, size_t tota
   s_g->fillRect(0, config::kSideHeight - 4, config::kSideWidth, 4, colBg());
 }
 
+bool formatLocalClock(char* buf, size_t len) {
+  const time_t now = time(nullptr);
+  if (now < 1600000000) {
+    snprintf(buf, len, "--:--:--");
+    return false;
+  }
+  struct tm t;
+  localtime_r(&now, &t);
+  snprintf(buf, len, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+  return true;
+}
+
+void drawClockLine() {
+  char buf[12];
+  formatLocalClock(buf, sizeof(buf));
+  s_g->fillRect(0, 42, config::kSideWidth, 28, colBg());
+  drawCentered(buf, 46, colFg(), 2);
+}
+
 void drawEmptyHud(const char* place, const char* range) {
   s_g->fillScreen(colBg());
   s_g->setTextSize(1);
   s_g->setTextColor(colAccent(), colBg());
-  s_g->setCursor(10, 28);
+  s_g->setCursor(10, 20);
   s_g->print("Clear skies");
+  drawClockLine();
+  s_g->setTextSize(1);
   s_g->setTextColor(colDim(), colBg());
-  s_g->setCursor(10, 48);
+  s_g->setCursor(10, 80);
   if (place != nullptr && place[0] != '\0') {
     s_g->print(place);
   }
-  s_g->setCursor(10, 64);
+  s_g->setCursor(10, 96);
   if (range != nullptr && range[0] != '\0') {
     s_g->print(range);
   }
@@ -221,8 +246,11 @@ void paintRadarHud() {
 
   if (n == 0 || planes == nullptr) {
     clearSelected();
+    s_empty_hud = true;
+    s_clock_sec = -1;
     drawEmptyHud(place_buf, range_label);
   } else {
+    s_empty_hud = false;
     const int found = indexOfHex(planes, n, s_selected_hex);
     if (found >= 0) {
       selectIndex(found, planes, n);
@@ -253,6 +281,7 @@ bool sideReady() { return s_ready; }
 void sideShowStatus(const char* line1, const char* line2) {
   s_banner_active = false;
   s_hud_active = false;
+  s_empty_hud = false;
   drawTwoLines(line1, line2);
 }
 
@@ -358,5 +387,20 @@ void sidePoll() {
         paintRadarHud();
       }
     }
+    return;
   }
+
+  if (!s_hud_active || !s_empty_hud) {
+    return;
+  }
+
+  const time_t now = time(nullptr);
+  struct tm t;
+  localtime_r(&now, &t);
+  const int sec = (now < 1600000000) ? -1 : t.tm_sec;
+  if (sec == s_clock_sec) {
+    return;
+  }
+  s_clock_sec = sec;
+  drawClockLine();
 }

@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <WiFiManager.h>
+#include <time.h>
 
 #include <cmath>
 #include <cstdio>
@@ -790,9 +791,23 @@ bool wifiReconnect() {
   return connectSavedNetwork(true);
 }
 
+bool s_ntp_started = false;
+
+void wifiEnsureNtp() {
+  if (s_ntp_started || !wifiLinkUp()) {
+    return;
+  }
+  // UK civil time (GMT/BST). NTP is UDP and non-blocking after this call.
+  configTzTime("GMT0BST,M3.5.0/1,M10.5.0/2", "pool.ntp.org",
+               "time.cloudflare.com");
+  s_ntp_started = true;
+  Serial.println("NTP: Europe/London");
+}
+
 void wifiLoop() {
   ensureWifiManager();
   if (wifiLinkUp()) {
+    wifiEnsureNtp();
     if (!s_wm.getWebPortalActive() && !s_wm.getConfigPortalActive()) {
       startLanWebPortal();
     }
