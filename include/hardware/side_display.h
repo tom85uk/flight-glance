@@ -14,6 +14,9 @@ void sideShowRadarInfo();
 /** Brief centered range readout; call sidePoll() to restore. */
 void sideShowRangeFlash();
 
+/** Brief theme name in the new palette; call sidePoll() to restore. */
+void sideShowThemeFlash();
+
 /** Brief big tag for a newly detected aircraft (callsign + type). */
 void sideShowAircraftFlash(const char* callsign, const char* type = nullptr);
 

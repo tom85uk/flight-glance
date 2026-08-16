@@ -27,12 +27,18 @@ lgfx::LovyanGFX* s_g = &sideTft;
 
 constexpr float kKmPerDeg = 111.32f;
 
-uint16_t colBg() { return ui::radar::kColorBackground; }
-uint16_t colFg() { return ui::radar::kColorLabel; }
-uint16_t colAccent() { return ui::radar::kColorAircraft; }
-uint16_t colDim() { return ui::radar::kColorGrid; }
-uint16_t colType() { return ui::radar::kColorTagType; }
-uint16_t colAlt() { return ui::radar::kColorTagAltitude; }
+/** Pack theme RGB for the ST7735. Do not reuse the GC9A01 kColor* values —
+ *  those are R/B-swapped for the round panel. */
+uint16_t sideRgb(const ui::radar::ThemeRgb& c) {
+  return sideTft.color565(c.r, c.g, c.b);
+}
+
+uint16_t colBg() { return sideRgb(ui::radar::themeCurrent().bg); }
+uint16_t colFg() { return sideRgb(ui::radar::themeCurrent().label); }
+uint16_t colAccent() { return sideRgb(ui::radar::themeCurrent().aircraft); }
+uint16_t colDim() { return sideRgb(ui::radar::themeCurrent().grid); }
+uint16_t colType() { return sideRgb(ui::radar::themeCurrent().tag_type); }
+uint16_t colAlt() { return sideRgb(ui::radar::themeCurrent().tag_alt); }
 
 float distanceKm(float lat, float lon) {
   const float north = (lat - static_cast<float>(services::location::lat())) * kKmPerDeg;
@@ -145,10 +151,6 @@ void drawAircraftCard(const services::adsb::Aircraft& ac, int index, size_t tota
   }
   drawLabel(4, stats_y + 36, "DST", buf, colType());
 
-  s_g->setTextColor(colAccent(), colBg());
-  s_g->setCursor(4, 112);
-  s_g->print(ac.squawk[0] ? ac.squawk : "----");
-
   snprintf(buf, sizeof(buf), "%d/%u", index + 1, static_cast<unsigned>(total));
   s_g->setTextColor(colDim(), colBg());
   s_g->setTextDatum(textdatum_t::top_right);
@@ -239,6 +241,17 @@ void sideShowRadarInfo() {
   s_hud_active = true;
   s_last_cycle_ms = millis();
   paintRadarHud();
+}
+
+void sideShowThemeFlash() {
+  if (!s_ready) {
+    return;
+  }
+
+  s_g->fillScreen(colBg());
+  drawCentered(ui::radar::themeCurrent().name, 52, colAccent(), 2);
+  startBanner(config::kOledRangeFlashMs);
+  flushSide();
 }
 
 void sideShowRangeFlash() {

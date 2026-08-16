@@ -143,7 +143,7 @@ void onThemeTap() {
   ui::radar::themeNext();
   if (g_radar_visible && WiFi.status() == WL_CONNECTED) {
     ui::radarDisplayDraw();
-    sideShowRadarInfo();
+    sideShowThemeFlash();
   }
 }
 
@@ -229,6 +229,7 @@ void setup() {
   buttonsInit();
   alertLedInit();
   displayInit();
+  ui::radar::themeInit();
   sideInit();
   if (wifiShowsSetupScreenOnBoot()) {
     statusScreenPortal();
@@ -236,7 +237,6 @@ void setup() {
   }
   services::location::init();
   ui::radar::rangeInit();
-  ui::radar::themeInit();
   ui::radarDisplaySweepInit();
 
 #if defined(WIFI_SSID)

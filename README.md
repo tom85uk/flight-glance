@@ -44,8 +44,8 @@ GPIO 27 ── next  ── GND
 
 ## What it shows
 
-- **Round screen:** north-up radar from mini-radar-c3 — themes, range rings, sweep, runway overlay, aircraft tags, rim dots for traffic beyond the ring.
-- **Side card:** place name and range, then a cycling detail card (callsign, type, registration, speed, altitude, heading, distance, squawk). New pickups flash the callsign; range changes flash the radius.
+- **Round screen:** north-up radar from mini-radar-c3 — themes, range rings, sweep, runway overlay, aircraft icons, rim dots for traffic beyond the ring.
+- **Side card:** place name and range, then a cycling detail card (callsign, type, registration, speed, altitude, heading, distance). New pickups flash the callsign; range changes flash the radius.
 
 Position defaults to Shrewsbury (`52.699468, -2.787509`) and can be changed in the portal.
 

@@ -50,13 +50,8 @@ bool s_cardinal_use_vlw = false;
 bool s_scale_use_vlw = false;
 float s_cardinal_vlw_size = 0.56f;
 float s_scale_vlw_size = 0.50f;
-float s_tag_vlw_size = 0.56f;
 const lgfx::GFXfont* s_cardinal_gfx = &lgfx_fonts::FreeSansBold12pt7b;
 const lgfx::GFXfont* s_scale_gfx = &lgfx_fonts::FreeSansBold9pt7b;
-const lgfx::GFXfont* s_tag_gfx = &lgfx_fonts::FreeSansBold12pt7b;
-
-bool s_tag_label_metrics_ready = false;
-bool s_tag_use_vlw = false;
 
 int s_scale_label_max_w = 0;
 int s_scale_label_h = 0;
@@ -75,7 +70,7 @@ struct DirtyRect {
   int16_t h = 0;
 };
 
-/** Icon + tag (or rim dot) areas from the last aircraft paint. */
+/** Icon or rim-dot areas from the last aircraft paint. */
 constexpr size_t kMaxDirtyRects = services::adsb::kMaxAircraft;
 DirtyRect s_prev_dirty[kMaxDirtyRects];
 size_t s_prev_dirty_count = 0;
@@ -197,25 +192,6 @@ void initLabelMetrics() {
   }
 
   s_label_metrics_ready = true;
-}
-
-void initTagLabelMetrics() {
-  if (s_tag_label_metrics_ready) {
-    return;
-  }
-
-  const int target = radar::kAircraftTagLabelHeightPx;
-  if (displayFontIsSmooth()) {
-    s_tag_use_vlw = true;
-    s_tag_vlw_size = findVlwSizeForHeight(target);
-  } else {
-    const lgfx::GFXfont* tag_candidates[] = {&lgfx_fonts::FreeSansBold12pt7b,
-                                               &lgfx_fonts::FreeSansBold9pt7b};
-    s_tag_gfx = pickGfxFontClosest(target, tag_candidates, 2);
-    s_tag_use_vlw = false;
-  }
-
-  s_tag_label_metrics_ready = true;
 }
 
 /** GC9A01 on this board needs R/B swapped for correct amber/red output. */
@@ -377,71 +353,6 @@ void drawAircraftIcon(int cx, int cy, float heading_deg) {
   s_draw->fillCircle(cx, cy, 3, radar::kColorAircraft);
 }
 
-void applyTagStyle() {
-  if (s_tag_use_vlw && s_draw->getColorDepth() > 8) {
-    displayFontSetSmoothSize(*s_draw, s_tag_vlw_size);
-  } else {
-    displayFontSetBitmap(*s_draw, s_tag_gfx);
-  }
-}
-
-int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
-  applyTagStyle();
-  int max_w = 0;
-  if (plane.callsign[0] != '\0') {
-    const int w = s_draw->textWidth(plane.callsign);
-    if (w > max_w) {
-      max_w = w;
-    }
-  }
-  if (plane.type[0] != '\0') {
-    const int w = s_draw->textWidth(plane.type);
-    if (w > max_w) {
-      max_w = w;
-    }
-  }
-  if (plane.alt[0] != '\0') {
-    const int w = s_draw->textWidth(plane.alt);
-    if (w > max_w) {
-      max_w = w;
-    }
-  }
-  return max_w;
-}
-
-void tagLayout(int x, int y, const services::adsb::Aircraft& plane, int* out_left,
-               int* out_top, int* out_w, int* out_h, int* out_anchor_x,
-               int* out_ly, bool* out_tag_on_right) {
-  initTagLabelMetrics();
-  applyTagStyle();
-
-  const int line_h = s_draw->fontHeight();
-  const int block_w = measureTagBlockWidth(plane);
-  const int block_h = line_h * 3;
-  int ly = y - block_h / 2;
-
-  const int symbol_half = PLANE_ICON_SIZE / 2 + 1;
-  const bool tag_on_right = x < radar::kCenterX;
-  int anchor_x = 0;
-  if (tag_on_right) {
-    anchor_x = x + symbol_half + radar::kAircraftLabelGapPx;
-    anchor_x = std::min(anchor_x, radar::kSize - block_w - 1);
-  } else {
-    anchor_x = x - symbol_half - radar::kAircraftLabelGapPx;
-    anchor_x = std::max(anchor_x, block_w + 1);
-  }
-  ly = std::max(1, std::min(ly, radar::kSize - block_h - 1));
-
-  const int left = tag_on_right ? anchor_x : (anchor_x - block_w);
-  *out_left = left;
-  *out_top = ly;
-  *out_w = block_w;
-  *out_h = block_h;
-  *out_anchor_x = anchor_x;
-  *out_ly = ly;
-  *out_tag_on_right = tag_on_right;
-}
-
 bool clampDirtyRect(DirtyRect* r) {
   if (r->w <= 0 || r->h <= 0) {
     return false;
@@ -489,48 +400,6 @@ void addDirtyRect(DirtyRect* rects, size_t* count, size_t max_count, int x,
   }
   rects[*count] = r;
   ++(*count);
-}
-
-void expandToInclude(int* x0, int* y0, int* x1, int* y1, int left, int top,
-                     int w, int h) {
-  *x0 = std::min(*x0, left);
-  *y0 = std::min(*y0, top);
-  *x1 = std::max(*x1, left + w);
-  *y1 = std::max(*y1, top + h);
-}
-
-void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
-  int left = 0;
-  int top = 0;
-  int block_w = 0;
-  int block_h = 0;
-  int anchor_x = 0;
-  int ly = 0;
-  bool tag_on_right = true;
-  tagLayout(x, y, plane, &left, &top, &block_w, &block_h, &anchor_x, &ly,
-            &tag_on_right);
-
-  applyTagStyle();
-  const int line_h = s_draw->fontHeight();
-  s_draw->setTextDatum(tag_on_right ? textdatum_t::top_left
-                                    : textdatum_t::top_right);
-
-  if (plane.callsign[0] != '\0') {
-    s_draw->setTextColor(radar::kColorLabel, radar::kColorBackground);
-    s_draw->drawString(plane.callsign, anchor_x, ly);
-  }
-  ly += line_h;
-
-  if (plane.type[0] != '\0') {
-    s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
-    s_draw->drawString(plane.type, anchor_x, ly);
-  }
-  ly += line_h;
-
-  if (plane.alt[0] != '\0') {
-    s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
-    s_draw->drawString(plane.alt, anchor_x, ly);
-  }
 }
 
 struct AircraftDrawItem {
@@ -632,38 +501,11 @@ void drawAircraft(DirtyRect* dirty, size_t* dirty_count, size_t dirty_max) {
     const int x = items[d].x;
     const int y = items[d].y;
     drawAircraftIcon(x, y, planes[i].nose_deg);
-  }
-  for (size_t d = 0; d < draw_count; ++d) {
-    const size_t i = items[d].index;
-    const int x = items[d].x;
-    const int y = items[d].y;
-    drawAircraftTag(x, y, planes[i]);
-
-    if (dirty == nullptr || dirty_count == nullptr) {
-      continue;
+    if (dirty != nullptr && dirty_count != nullptr) {
+      constexpr int kIconHalf = 12;
+      addDirtyRect(dirty, dirty_count, dirty_max, x - kIconHalf, y - kIconHalf,
+                   kIconHalf * 2 + 1, kIconHalf * 2 + 1);
     }
-
-    // Rotated 15×15 icon fits in ~22px; pad for AA fringe.
-    constexpr int kIconHalf = 12;
-    int x0 = x - kIconHalf;
-    int y0 = y - kIconHalf;
-    int x1 = x + kIconHalf + 1;
-    int y1 = y + kIconHalf + 1;
-
-    int left = 0;
-    int top = 0;
-    int block_w = 0;
-    int block_h = 0;
-    int anchor_x = 0;
-    int ly = 0;
-    bool tag_on_right = true;
-    tagLayout(x, y, planes[i], &left, &top, &block_w, &block_h, &anchor_x, &ly,
-              &tag_on_right);
-    if (block_w > 0 && block_h > 0) {
-      expandToInclude(&x0, &y0, &x1, &y1, left - 1, top - 1, block_w + 2,
-                      block_h + 2);
-    }
-    addDirtyRect(dirty, dirty_count, dirty_max, x0, y0, x1 - x0, y1 - y0);
   }
 }
 
@@ -975,127 +817,6 @@ void restorePreviousSweepArea() {
   }
 }
 
-bool dirtyIntersects(const DirtyRect& a, const DirtyRect& b) {
-  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y ||
-           b.y + b.h <= a.y);
-}
-
-bool rectHitsCorridor(const DirtyRect& r, float deg) {
-  int tip_x = 0;
-  int tip_y = 0;
-  sweepTip(deg, &tip_x, &tip_y);
-  constexpr int kPad = 4;
-  constexpr int kSteps = 12;
-  for (int s = 0; s <= kSteps; ++s) {
-    const float t = static_cast<float>(s) / static_cast<float>(kSteps);
-    DirtyRect sample;
-    sample.x = static_cast<int16_t>(
-        radar::kCenterX +
-        static_cast<int>(lroundf((tip_x - radar::kCenterX) * t)) - kPad);
-    sample.y = static_cast<int16_t>(
-        radar::kCenterY +
-        static_cast<int>(lroundf((tip_y - radar::kCenterY) * t)) - kPad);
-    sample.w = static_cast<int16_t>(kPad * 2 + 1);
-    sample.h = static_cast<int16_t>(kPad * 2 + 1);
-    if (clampDirtyRect(&sample) && dirtyIntersects(r, sample)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool rectHitsActiveSweep(const DirtyRect& r, float head_deg) {
-  const float step = sweepStepDeg();
-  for (int i = 0; i < radar::kSweepTrailCount; ++i) {
-    if (rectHitsCorridor(r, head_deg - step * static_cast<float>(i))) {
-      return true;
-    }
-  }
-  if (s_prev_sweep_valid) {
-    for (int i = 0; i < radar::kSweepTrailCount; ++i) {
-      if (rectHitsCorridor(r, s_prev_sweep_head_deg -
-                                  step * static_cast<float>(i))) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-void drawOneAircraftAt(int x, int y, const services::adsb::Aircraft& plane) {
-  drawAircraftIcon(x, y, plane.nose_deg);
-  drawAircraftTag(x, y, plane);
-}
-
-void redrawAircraftIfNeededForSweep(float head_deg) {
-  if (s_prev_dirty_count == 0) {
-    return;
-  }
-
-  const DrawScope scope(tft);
-  displayFontEnsureLoaded(tft);
-  services::adsb::lockAircraft();
-  const size_t n = services::adsb::aircraftCount();
-  const services::adsb::Aircraft* planes = services::adsb::aircraftList();
-  for (size_t i = 0; i < n; ++i) {
-    float dx_km = 0.0f;
-    float dy_km = 0.0f;
-    float dist_km = 0.0f;
-    offsetKmFromCenter(planes[i].lat, planes[i].lon, &dx_km, &dy_km, &dist_km);
-
-    DirtyRect r;
-    if (isInsideOuterRingKm(dist_km)) {
-      int x = 0;
-      int y = 0;
-      latLonToScreen(planes[i].lat, planes[i].lon, &x, &y);
-      constexpr int kIconHalf = 12;
-      int x0 = x - kIconHalf;
-      int y0 = y - kIconHalf;
-      int x1 = x + kIconHalf + 1;
-      int y1 = y + kIconHalf + 1;
-      int left = 0;
-      int top = 0;
-      int block_w = 0;
-      int block_h = 0;
-      int anchor_x = 0;
-      int ly = 0;
-      bool tag_on_right = true;
-      tagLayout(x, y, planes[i], &left, &top, &block_w, &block_h, &anchor_x, &ly,
-                &tag_on_right);
-      if (block_w > 0 && block_h > 0) {
-        expandToInclude(&x0, &y0, &x1, &y1, left - 1, top - 1, block_w + 2,
-                        block_h + 2);
-      }
-      r.x = static_cast<int16_t>(x0);
-      r.y = static_cast<int16_t>(y0);
-      r.w = static_cast<int16_t>(x1 - x0);
-      r.h = static_cast<int16_t>(y1 - y0);
-      if (!clampDirtyRect(&r) || !rectHitsActiveSweep(r, head_deg)) {
-        continue;
-      }
-      drawOneAircraftAt(x, y, planes[i]);
-    } else {
-      int dot_x = 0;
-      int dot_y = 0;
-      if (!beyondRingEdgeDotFromLatLon(planes[i].lat, planes[i].lon, &dot_x,
-                                       &dot_y)) {
-        continue;
-      }
-      const int pad = radar::kBeyondRingDotRadiusPx + 2;
-      r.x = static_cast<int16_t>(dot_x - pad);
-      r.y = static_cast<int16_t>(dot_y - pad);
-      r.w = static_cast<int16_t>(pad * 2 + 1);
-      r.h = static_cast<int16_t>(pad * 2 + 1);
-      if (!clampDirtyRect(&r) || !rectHitsActiveSweep(r, head_deg)) {
-        continue;
-      }
-      drawBeyondRingDot(dot_x, dot_y);
-    }
-  }
-  services::adsb::unlockAircraft();
-  tft.setTextDatum(textdatum_t::top_left);
-}
-
 uint16_t sweepTrailColor(int trail_index) {
   const radar::ThemeRgb& sweep = radar::themeCurrent().sweep;
   const float t =
@@ -1141,12 +862,12 @@ void paintAircraftOnPanel() {
 }
 
 void paintDynamicOverlays() {
-  paintAircraftOnPanel();
   if (s_sweep_pref_enabled) {
     drawSweepOnPanel();
   } else {
     s_prev_sweep_valid = false;
   }
+  paintAircraftOnPanel();
 }
 
 void paintFull() {
@@ -1212,8 +933,8 @@ void tickSweep() {
     restrokeStaticGrid();
   }
   s_sweep_head_deg = wrapDeg(s_sweep_head_deg + sweepStepDeg());
-  redrawAircraftIfNeededForSweep(s_sweep_head_deg);
   drawSweepOnPanel();
+  paintAircraftOnPanel();
 }
 
 void clearSweepFromPanel() {
